@@ -1,0 +1,35 @@
+
+'use client';
+
+import { useState, useEffect, type ReactNode } from 'react';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/toaster';
+import { LanguageProvider } from '@/context/language-context';
+import { GeolocationProvider } from '@/context/geolocation-context';
+
+export function ClientProviders({ children }: { children: ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Prevent rendering on the server and during the initial client render
+  // to avoid hydration mismatch.
+  if (!isMounted) {
+    return null;
+  }
+
+  return (
+    <LanguageProvider>
+      <GeolocationProvider>
+          <SidebarProvider>
+            {children}
+            <Toaster />
+          </SidebarProvider>
+      </GeolocationProvider>
+    </LanguageProvider>
+  );
+}
+
+    

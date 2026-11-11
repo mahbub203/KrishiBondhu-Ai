@@ -1,0 +1,403 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user profile within the KrishiBondhu AI application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user profile."
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "User's phone number for communication."
+        },
+        "address": {
+          "type": "string",
+          "description": "User's address for weather alerts and localized information."
+        },
+        "preferredLanguage": {
+          "type": "string",
+          "description": "User's preferred language for the application."
+        },
+        "soilType": {
+          "type": "string",
+          "description": "User's soil type for crop planning."
+        },
+        "locationCoordinates": {
+          "type": "string",
+          "description": "User's geographical coordinates for localized services."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "phoneNumber",
+        "address"
+      ]
+    },
+    "Land": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Land",
+      "type": "object",
+      "description": "Represents a piece of land a user is farming.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "A user-defined name for the land (e.g., North Field)."
+        },
+        "area": {
+          "type": "number",
+          "description": "The area of the land in acres or other units."
+        },
+        "areaUnit": {
+          "type": "string",
+          "description": "The unit for the area (e.g., acres, bigha)."
+        },
+        "location": {
+          "type": "string",
+          "description": "The location or address of the land."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to the UserProfile."
+        }
+      },
+      "required": [
+        "name",
+        "userProfileId"
+      ]
+    },
+    "UserCrop": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserCrop",
+      "type": "object",
+      "description": "Represents a crop a user is currently farming on a specific land, with AI-driven guidance.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user's crop entry."
+        },
+        "landId": {
+          "type": "string",
+          "description": "Reference to the Land."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to the UserProfile."
+        },
+        "cropName": {
+          "type": "string",
+          "description": "The name of the crop being farmed."
+        },
+        "sowingDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date when the crop seeds were sown."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current growth stage of the crop, calculated from sowing date."
+        },
+        "guidance": {
+            "type": "object",
+            "description": "The AI-generated step-by-step guidance plan for this crop.",
+            "properties": {
+                "guidance": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": { "type": "string" },
+                            "details": { "type": "string" },
+                            "isCompleted": { "type": "boolean" },
+                            "durationInDays": { "type": "number" }
+                        },
+                        "required": ["title", "details", "isCompleted", "durationInDays"]
+                    }
+                }
+            }
+        }
+      },
+      "required": [
+        "id",
+        "landId",
+        "userProfileId",
+        "cropName",
+        "sowingDate",
+        "status"
+      ]
+    },
+    "CropIssue": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CropIssue",
+      "type": "object",
+      "description": "Represents a crop issue reported by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the crop issue."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N CropIssue)"
+        },
+        "imageURL": {
+          "type": "string",
+          "description": "URL of the image of the affected crop."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the crop issue."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of when the issue was reported.",
+          "format": "date-time"
+        },
+        "aiSolution": {
+          "type": "string",
+          "description": "The AI generated solution for the reported crop issue."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "imageURL",
+        "description",
+        "timestamp"
+      ]
+    },
+    "WeatherAlert": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WeatherAlert",
+      "type": "object",
+      "description": "Represents a weather alert for a specific region.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the weather alert."
+        },
+        "region": {
+          "type": "string",
+          "description": "Region for which the weather alert is issued."
+        },
+        "alertType": {
+          "type": "string",
+          "description": "Type of weather alert (e.g., flood, drought)."
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity of the weather alert (e.g., high, medium, low)."
+        },
+        "message": {
+          "type": "string",
+          "description": "Detailed message of the weather alert."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of when the alert was issued.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "region",
+        "alertType",
+        "severity",
+        "message",
+        "timestamp"
+      ]
+    },
+    "CommunityPost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CommunityPost",
+      "type": "object",
+      "description": "Represents a post in the community forum.",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "description": "The UID of the user who created the post."
+        },
+        "authorName": {
+          "type": "string",
+          "description": "The display name of the user who created the post."
+        },
+        "authorAvatarUrl": {
+          "type": "string",
+          "description": "The URL of the author's avatar image."
+        },
+        "content": {
+          "type": "string",
+          "description": "Content of the community post."
+        },
+        "imageURL": {
+          "type": "string",
+          "description": "Optional URL of an image included in the post."
+        },
+        "timestamp": {
+          "type": "object",
+          "description": "Timestamp of when the post was created."
+        },
+        "likes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "An array of user IDs who have liked the post."
+        }
+      },
+      "required": [
+        "authorId",
+        "authorName",
+        "content",
+        "timestamp"
+      ]
+    },
+    "Comment": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Comment",
+        "type": "object",
+        "description": "Represents a comment on a community post.",
+        "properties": {
+            "authorId": { "type": "string" },
+            "authorName": { "type": "string" },
+            "authorAvatarUrl": { "type": "string" },
+            "content": { "type": "string" },
+            "timestamp": { "type": "object" }
+        },
+        "required": ["authorId", "authorName", "content", "timestamp"]
+    },
+    "MarketPrice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MarketPrice",
+      "type": "object",
+      "description": "Represents the market price of a specific crop.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the market price entry."
+        },
+        "cropName": {
+          "type": "string",
+          "description": "Name of the crop."
+        },
+        "marketName": {
+          "type": "string",
+          "description": "Name of the market."
+        },
+        "pricePerUnit": {
+          "type": "number",
+          "description": "Price per unit of the crop."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (e.g., kg, ton)."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date when the price was recorded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "cropName",
+        "marketName",
+        "pricePerUnit",
+        "unit",
+        "date"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous",
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profiles, accessible only to the respective user."
+        }
+      },
+      {
+        "path": "/users/{userId}/lands/{landId}",
+        "definition": {
+            "entityName": "Land",
+            "schema": { "$ref": "#/entities/Land" },
+            "description": "Stores lands owned by a user."
+        }
+      },
+      {
+        "path": "/users/{userId}/lands/{landId}/crops/{cropId}",
+        "definition": {
+          "entityName": "UserCrop",
+          "schema": {
+            "$ref": "#/entities/UserCrop"
+          },
+          "description": "Stores the crops a user is currently farming on a specific land. Accessible only by the respective user."
+        }
+      },
+      {
+        "path": "/users/{userId}/crop_issues/{cropIssueId}",
+        "definition": {
+          "entityName": "CropIssue",
+          "schema": {
+            "$ref": "#/entities/CropIssue"
+          },
+          "description": "Stores crop issues reported by users. Accessible only by the respective user."
+        }
+      },
+      {
+        "path": "/community_posts/{postId}",
+        "definition": {
+            "entityName": "CommunityPost",
+            "schema": { "$ref": "#/entities/CommunityPost" },
+            "description": "Stores all community posts. This collection is publicly readable by all authenticated users."
+        }
+      },
+      {
+          "path": "/community_posts/{postId}/comments/{commentId}",
+          "definition": {
+              "entityName": "Comment",
+              "schema": { "$ref": "#/entities/Comment" },
+              "description": "Stores comments for a specific community post. This collection is publicly readable by all authenticated users."
+          }
+      },
+      {
+        "path": "/weather_alerts/{weatherAlertId}",
+        "definition": {
+          "entityName": "WeatherAlert",
+          "schema": {
+            "$ref": "#/entities/WeatherAlert"
+          },
+          "description": "Stores weather alerts, publicly accessible."
+        }
+      },
+      {
+        "path": "/market_prices/{marketPriceId}",
+        "definition": {
+          "entityName": "MarketPrice",
+          "schema": {
+            "$ref": "#/entities/MarketPrice"
+          },
+          "description": "Stores market prices, publicly accessible."
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is updated to support a public community feed. The `community_posts` collection is now at the root, making all posts publicly readable. A `comments` subcollection has been added to each post. The old private `community_posts` collection under users has been removed."
+  }
+}

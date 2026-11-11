@@ -1,0 +1,442 @@
+
+'use client';
+
+import Link from 'next/link';
+import Image from 'next/image';
+import React, { useState, useEffect, useTransition, useRef } from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  AlertTriangle,
+  ScanEye,
+  Loader2,
+  MapPin,
+  Mic,
+  BarChart,
+  BookOpen,
+  Newspaper,
+  ListChecks,
+  RefreshCw,
+  Tractor,
+  LogIn,
+  CalendarDays,
+  User,
+} from 'lucide-react';
+import { AppHeader } from '@/components/app-header';
+import { SidebarInset } from '@/components/ui/sidebar';
+import { useLanguage } from '@/context/language-context';
+import { suggestSeasonalCrops, getCriticalWeatherAlert, getFarmingNews } from '@/lib/actions';
+import type { OptimalCropSuggestionOutput } from '@/ai/flows/optimal-crop-suggestion';
+import { useGeolocation } from '@/hooks/use-geolocation';
+import { getWeather, getConditionIcon, getCurrentSeason } from '@/lib/weather';
+import type { WeatherData } from '@/lib/weather';
+import { Button } from '@/components/ui/button';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import type { CriticalWeatherAlertOutput } from '@/ai/flows/critical-weather-alert-flow';
+import type { FarmingNewsOutput } from '@/ai/flows/farming-news-flow';
+import { cn } from '@/lib/utils';
+
+const RANK_STYLES = {
+    0: { icon: '🥇', color: 'bg-yellow-400/10 border-yellow-500/50', textColor: 'text-yellow-600' },
+    1: { icon: '🥈', color: 'bg-slate-300/20 border-slate-400/50', textColor: 'text-slate-600' },
+    2: { icon: '🥉', color: 'bg-orange-400/10 border-orange-500/50', textColor: 'text-orange-600' },
+};
+
+function CriticalAlertCard() {
+    const { t } = useLanguage();
+    const { location, isGeolocationLoading } = useGeolocation();
+    const [isPending, startTransition] = useTransition();
+    const [alert, setAlert] = useState<CriticalWeatherAlertOutput | null>(null);
+
+    useEffect(() => {
+        if (isGeolocationLoading) return;
+
+        startTransition(async () => {
+            const region = location ? `lat: ${location.latitude}, long: ${location.longitude}` : 'Bangladesh';
+            const { data } = await getCriticalWeatherAlert({ region, country: 'Bangladesh' });
+            if (data && data.isCritical) {
+                setAlert(data);
+            }
+        });
+    }, [location, isGeolocationLoading]);
+
+    if (isPending || isGeolocationLoading) {
+        return (
+            <div className="flex items-center justify-start gap-4 rounded-xl border-l-4 border-muted-foreground/50 bg-muted/50 p-4 text-muted-foreground">
+                <Loader2 className="size-6 animate-spin" />
+                <p className="font-semibold">{t('dashboard.alert.checking')}</p>
+            </div>
+        );
+    }
+    
+    if (!alert) {
+        return null; // Don't render anything if there's no critical alert
+    }
+
+    return (
+        <div className="flex items-center justify-between gap-4 rounded-xl border-l-4 border-orange-500 bg-orange-100 p-4 text-orange-800">
+            <div className="flex items-center gap-3">
+                <AlertTriangle className="size-6" />
+                <p className="font-semibold">
+                    {alert.alertTitle}
+                </p>
+            </div>
+            <Button variant="outline" size="sm" className="border-orange-300 bg-transparent hover:bg-orange-200/50">
+                {alert.callToActionText}
+            </Button>
+        </div>
+    );
+}
+
+function SeasonalSuggestionCard() {
+    const { t } = useLanguage();
+    const [isPending, startTransition] = useTransition();
+    const [result, setResult] = useState<OptimalCropSuggestionOutput | null>(null);
+    const { location, isGeolocationLoading } = useGeolocation();
+
+    useEffect(() => {
+        if (isGeolocationLoading) return;
+        startTransition(async () => {
+            const { data } = await suggestSeasonalCrops({ location });
+            setResult(data);
+        });
+    }, [location, isGeolocationLoading]);
+
+    const season = getCurrentSeason();
+    const locationName = location ? `${location.latitude.toFixed(2)}, ${location.longitude.toFixed(2)}` : 'Bangladesh';
+
+
+    if (isPending || isGeolocationLoading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline">{t('dashboard.insights.title')}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center min-h-[200px]">
+                    <Loader2 className="animate-spin text-primary" />
+                    <span className="ml-2">{t('dashboard.insights.loading')}</span>
+                </CardContent>
+            </Card>
+        );
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">{t('dashboard.insights.title')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-1 rounded-lg border bg-muted/50 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground">{t('seasonalSuggestions.locationLabel')}</p>
+                    <p className="font-medium flex items-center gap-1"><MapPin className="size-4" /> {locationName}</p>
+                </div>
+                <div className="space-y-1 rounded-lg border bg-muted/50 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground">{t('seasonalSuggestions.seasonLabel')}</p>
+                    <p className="font-medium flex items-center gap-1"><CalendarDays className="size-4" /> {season.name}</p>
+                </div>
+                
+                <div className="space-y-3 pt-2">
+                    {result?.suggestedCrops.map((crop, index) => {
+                        const rankStyle = RANK_STYLES[index as keyof typeof RANK_STYLES] || RANK_STYLES[2];
+                        return (
+                            <div key={crop.cropName} className={`p-3 rounded-lg border flex items-center gap-4 ${rankStyle.color}`}>
+                                <span className="text-2xl">{rankStyle.icon}</span>
+                                <div className="flex-1">
+                                    <p className={`font-headline font-bold text-lg ${rankStyle.textColor}`}>{crop.cropName}</p>
+                                    <p className="text-xs text-muted-foreground">{crop.variety}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className={`font-bold text-xl ${rankStyle.textColor}`}>{crop.suitabilityScore}%</p>
+                                    <p className="text-xs text-muted-foreground">{t('seasonalSuggestions.suitability')}</p>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+                {result?.reasoning && <p className="text-xs text-muted-foreground text-center pt-2">{result.reasoning}</p>}
+            </CardContent>
+        </Card>
+    );
+}
+
+function FarmingNewsCard() {
+    const { t } = useLanguage();
+    const [news, setNews] = useState<FarmingNewsOutput | null>(null);
+    const [isPending, startTransition] = useTransition();
+
+    const fetchNews = () => {
+        startTransition(async () => {
+            const { data } = await getFarmingNews();
+            setNews(data);
+        });
+    };
+
+    useEffect(() => {
+        fetchNews();
+    }, []);
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="font-headline">{t('dashboard.news.title')}</CardTitle>
+                    <Button variant="ghost" size="icon" onClick={fetchNews} disabled={isPending} aria-label={t('dashboard.news.refresh')}>
+                        <RefreshCw className={cn("size-4", isPending && "animate-spin")} />
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent className="min-h-[200px] space-y-4">
+                {isPending ? (
+                    <div className="flex items-center justify-center h-full">
+                        <Loader2 className="animate-spin text-primary" />
+                        <span className="ml-2">{t('dashboard.news.loading')}</span>
+                    </div>
+                ) : news?.articles ? (
+                    news.articles.map((article) => (
+                        <div key={article.title} className="border-b pb-2 last:border-b-0 last:pb-0">
+                             <h4 className="font-semibold text-sm">{article.title}</h4>
+                             <p className="text-xs text-muted-foreground">{article.summary}</p>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center">{t('dashboard.news.error')}</p>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+
+export default function DashboardPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { location, error: locationError, isGeolocationLoading } = useGeolocation();
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(true);
+  const { t } = useLanguage();
+
+  const userLandsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'users', user.uid, 'lands');
+  }, [firestore, user]);
+  const { data: lands } = useCollection(userLandsQuery);
+
+
+  useEffect(() => {
+    if (isGeolocationLoading) {
+      setIsWeatherLoading(true);
+      return;
+    }
+    if (location) {
+      getWeather(location.latitude, location.longitude)
+        .then(setWeatherData)
+        .catch(console.error)
+        .finally(() => setIsWeatherLoading(false));
+    } else {
+      setIsWeatherLoading(false);
+    }
+  }, [location, isGeolocationLoading]);
+
+  const quickActions = [
+    {
+      title: t('dashboard.action.diagnose'),
+      icon: ScanEye,
+      href: '/crop-doctor',
+    },
+    { title: t('dashboard.action.askAI'), icon: Mic, href: '/voice-assistant' },
+    {
+      title: t('dashboard.action.marketPrices'),
+      icon: BarChart,
+      href: '/market-info',
+    },
+    {
+      title: t('dashboard.action.findOfficer'),
+      icon: User,
+      href: '/find-officer',
+    },
+  ];
+
+  const resources = [
+      { title: t('dashboard.resources.fertilizerGuide'), icon: BookOpen },
+      { title: t('dashboard.resources.leafSpotsVideo'), icon: Newspaper },
+      { title: t('dashboard.resources.planningChecklist'), icon: ListChecks },
+  ];
+
+  const renderWeather = () => {
+    if (isWeatherLoading || isGeolocationLoading)
+      return (
+        <div className="flex items-center gap-2">
+          <Loader2 className="size-4 animate-spin" />{' '}
+          <span>{t('dashboard.weather.loading')}</span>
+        </div>
+      );
+    if (locationError || !weatherData || !weatherData.locationName)
+      return (
+        <div className="flex items-center gap-2">
+          <MapPin className="size-4" /> <span>{t('dashboard.weather.locationOff')}</span>
+        </div>
+      );
+
+    return (
+      <div className="flex items-center gap-3">
+        {getConditionIcon(weatherData.current.conditionCode, 'size-8')}
+        <div>
+          <p className="font-headline text-2xl font-bold">
+            {weatherData.current.temperature}°C
+          </p>
+          <p className="text-xs">{weatherData.locationName.split(',')[0]}</p>
+        </div>
+      </div>
+    );
+  };
+
+  const fieldsMonitored = lands?.length ?? 0;
+  const upcomingTasks = lands?.length ?? 0; 
+  const heroImageSrc = "https://drive.google.com/uc?export=view&id=1abr6yHtBiozoWjGIVmQR8xf_qiiDOrdk";
+
+  return (
+    <SidebarInset>
+      <AppHeader />
+      <main className="flex-1 space-y-6 bg-muted/40 p-4 md:p-6">
+        {/* Hero Section */}
+        <div className="relative min-h-[300px] w-full overflow-hidden rounded-2xl">
+           <Image
+            src={heroImageSrc}
+            alt="Lush green field"
+            fill
+            className="object-cover"
+            priority
+          />
+           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+           <div className="absolute inset-0 flex flex-col justify-between p-6 text-white md:p-8">
+                <div className="ml-auto rounded-full bg-black/30 p-2 px-4 backdrop-blur-sm">
+                  {renderWeather()}
+                </div>
+
+                <div className="relative">
+                  <h2 className="font-headline text-3xl font-bold md:text-4xl">
+                    {user ? t('dashboard.welcome', { name: user.displayName || t('dashboard.farmer') }) : t('dashboard.welcome.anonymous')}
+                  </h2>
+                  {user ? (
+                      <>
+                          <p className="mt-1 max-w-lg">
+                            {fieldsMonitored > 0 ? t('dashboard.farmStatus') : t('dashboard.farmStatus.empty')}
+                          </p>
+                          <div className="mt-4 max-w-md">
+                              <div className="grid grid-cols-3 gap-4">
+                                  <div className="rounded-lg bg-white/10 p-3 backdrop-blur-sm">
+                                      <p className="text-sm text-white/80">{t('dashboard.metrics.health')}</p>
+                                      <p className="font-bold text-lg">{fieldsMonitored > 0 ? t('dashboard.metrics.healthValue') : '--'}</p>
+                                  </div>
+                                  <div className="rounded-lg bg-white/10 p-3 backdrop-blur-sm">
+                                      <p className="text-sm text-white/80">{t('dashboard.metrics.fields')}</p>
+                                      <p className="font-bold text-lg">{fieldsMonitored}</p>
+                                  </div>
+                                  <div className="rounded-lg bg-white/10 p-3 backdrop-blur-sm">
+                                      <p className="text-sm text-white/80">{t('dashboard.metrics.tasks')}</p>
+                                      <p className="font-bold text-lg">{upcomingTasks}</p>
+                                  </div>
+                              </div>
+                          </div>
+                      </>
+                  ) : (
+                      <>
+                          <p className="mt-1 max-w-lg">{t('dashboard.loginPrompt.description')}</p>
+                           <Button asChild size="lg" className="mt-4 bg-accent text-accent-foreground hover:bg-accent/80">
+                              <Link href="/login"><LogIn className="mr-2"/>{t('dashboard.loginPrompt.button')}</Link>
+                          </Button>
+                      </>
+                  )}
+                </div>
+            </div>
+        </div>
+
+
+        {/* Alert Bar */}
+        <CriticalAlertCard />
+        
+        {/* My Crops Banner */}
+        <div className="rounded-xl bg-primary p-6 text-primary-foreground flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+                <Tractor className="size-10"/>
+                <div>
+                    <h3 className="font-headline text-xl font-bold">{t('sidebar.nav.myCrops')}</h3>
+                    <p className="text-sm opacity-80">{t('dashboard.myCrops.description')}</p>
+                </div>
+            </div>
+            <Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
+                <Link href="/my-crops">{t('dashboard.myCrops.viewDashboard')}</Link>
+            </Button>
+        </div>
+
+
+        {/* Actionable Insights */}
+        <section>
+             <h3 className="font-headline text-xl font-semibold">{t('dashboard.actionableInsights.title')}</h3>
+             <p className="text-muted-foreground text-sm">{t('dashboard.actionableInsights.description')}</p>
+            <div className="mt-4 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <SeasonalSuggestionCard />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-4">
+                    {quickActions.map(action => (
+                         <Link href={action.href} key={action.title}>
+                            <Card className="flex flex-col items-center justify-center gap-2 p-4 h-full text-center hover:bg-accent/20 transition-colors">
+                                <action.icon className="size-6 text-primary"/>
+                                <p className="text-sm font-semibold">{action.title}</p>
+                            </Card>
+                         </Link>
+                    ))}
+                </div>
+            </div>
+        </section>
+
+        {/* Community & Resources */}
+        <section>
+             <h3 className="font-headline text-xl font-semibold">{t('dashboard.communityAndResources.title')}</h3>
+             <p className="text-muted-foreground text-sm">{t('dashboard.communityAndResources.description')}</p>
+             <div className="mt-4 grid gap-6 md:grid-cols-3">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline">{t('dashboard.community.title')}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                         <div className="group">
+                             <p className="font-semibold group-hover:underline">{t('dashboard.community.post1')}</p>
+                             <p className="text-xs text-muted-foreground">27 replies • Local group</p>
+                         </div>
+                         <div className="group">
+                             <p className="font-semibold group-hover:underline">{t('dashboard.community.post2')}</p>
+                             <p className="text-xs text-muted-foreground">Active now</p>
+                         </div>
+                         <Button variant="secondary" className="w-full" asChild><Link href="/community">{t('dashboard.community.openCommunity')}</Link></Button>
+                    </CardContent>
+                 </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline">{t('dashboard.resources.title')}</CardTitle>
+                    </CardHeader>
+                     <CardContent className="space-y-2">
+                        {resources.map((res, i) => (
+                             <Button key={i} variant="ghost" className="w-full justify-start gap-3">
+                                <res.icon className="text-muted-foreground"/>{res.title}
+                             </Button>
+                        ))}
+                         <Button variant="secondary" className="w-full mt-2 !ml-0">{t('dashboard.resources.viewAll')}</Button>
+                    </CardContent>
+                 </Card>
+                 <FarmingNewsCard />
+             </div>
+        </section>
+
+      </main>
+    </SidebarInset>
+  );
+}
+
+    
